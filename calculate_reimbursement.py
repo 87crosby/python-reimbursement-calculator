@@ -1,85 +1,103 @@
-from datetime import datetime, timedelta
-from typing import List, Literal, Set
+from dataclasses import dataclass
+from datetime import date, timedelta
+from enum import Enum
+from typing import List, Dict
 
+class CityType(Enum):
+    LOW_COST = "Low Cost City"
+    HIGH_COST = "High Cost City"
+
+@dataclass
 class Project:
-    def __init__(self, city_type: Literal["high", "low"], start_date: str, end_date: str):
-        self.city_type: Literal["high", "low"] = city_type # 'high' or 'low' cost city
-        self.start_date: datetime = datetime.strptime(start_date, "%m/%d/%y")
-        self.end_date: datetime = datetime.strptime(end_date, "%m/%d/%y")
+    city_type: CityType
+    start_date: date
+    end_date: date
 
-def calculate_reimbursement(projects: List[Project]) -> int:
-    # Sort projects by start date
-    projects.sort(key=lambda x: x.start_date)
-    
-    # Collect all unique dates across all projects
-    dates: Set[datetime] = set()
-    for project in projects:
-        current_date: datetime = project.start_date
-        while current_date <= project.end_date:
-            dates.add(current_date)
-            current_date += timedelta(days=1)
-    
-    # Sort the unique dates
-    dates_list: List[datetime] = sorted(list(dates))
-    
-    total_reimbursement: int = 0
-    for i, date in enumerate(dates_list):
-        # Determine if it's a travel day
-        is_travel_day: bool = (i == 0 or i == len(dates_list) - 1 or 
-                               (i > 0 and (date - dates_list[i-1]).days > 1))
-        
-        # Find the city type for the current date
-        city_type: Literal["high", "low"] = next(
-            (p.city_type for p in projects if p.start_date <= date <= p.end_date), 
-            "low"
-        )
-        
-        # Calculate rate based on travel day and city type
-        if is_travel_day:
-            rate: int = 55 if city_type == "high" else 45 # Travel day rates
-        else:
-            rate: int = 85 if city_type == "high" else 75 # Full day rates
-        
-        total_reimbursement += rate
-    
-    return total_reimbursement
+class ReimbursementCalculator:
+    def __init__(self):
+        self.rates = {
+            "travel": {CityType.LOW_COST: 45, CityType.HIGH_COST: 55},
+            "full": {CityType.LOW_COST: 75, CityType.HIGH_COST: 85},
+        }
 
-def run_scenario(scenario: int, projects: List[Project]) -> None:
-    print(f"Set {scenario}:")
-    # Print details of each project in the scenario
-    for i, project in enumerate(projects, 1):
-        print(f"  Project {i}: {project.city_type.capitalize()} Cost City, "
-              f"Start Date: {project.start_date.strftime('%m/%d/%y')}, "
-              f"End Date: {project.end_date.strftime('%m/%d/%y')}")
-    
-    # Calculate and print the total reimbursement for the scenario
-    reimbursement: int = calculate_reimbursement(projects)
-    print(f"Total Reimbursement: ${reimbursement}\n")
+    def calculate_reimbursement(self, projects: List[Project]) -> int:
+        if not projects:
+            return 0
 
-# Define the scenarios
-set1: List[Project] = [Project("low", "9/1/15", "9/3/15")]
+        projects.sort(key=lambda p: p.start_date)
+        day_types: Dict[date, str] = {}
+        city_types: Dict[date, CityType] = {}
 
-set2: List[Project] = [
-    Project("low", "9/1/15", "9/1/15"),
-    Project("high", "9/2/15", "9/6/15"),
-    Project("low", "9/6/15", "9/8/15")
-]
+        # Initialize all project days
+        for project in projects:
+            current_date = project.start_date
+            while current_date <= project.end_date:
+                if current_date not in day_types:
+                    day_types[current_date] = "full"
+                    city_types[current_date] = project.city_type
+                else:
+                    # If the day exists, choose the higher cost city
+                    city_types[current_date] = max(city_types[current_date], project.city_type, key=lambda x: self.rates["full"][x])
+                current_date += timedelta(days=1)
 
-set3: List[Project] = [
-    Project("low", "9/1/15", "9/3/15"),
-    Project("high", "9/5/15", "9/7/15"),
-    Project("high", "9/8/15", "9/8/15")
-]
+        # Set first and last days of the entire period as travel days
+        all_dates = sorted(day_types.keys())
+        if all_dates:
+            day_types[all_dates[0]] = "travel"
+            day_types[all_dates[-1]] = "travel"
 
-set4: List[Project] = [
-    Project("low", "9/1/15", "9/1/15"),
-    Project("low", "9/1/15", "9/1/15"),
-    Project("high", "9/2/15", "9/2/15"),
-    Project("high", "9/2/15", "9/3/15")
-]
+        # Check for gaps and set adjacent days as travel days
+        for i in range(1, len(all_dates)):
+            if (all_dates[i] - all_dates[i-1]).days > 1:
+                day_types[all_dates[i-1]] = "travel"
+                day_types[all_dates[i]] = "travel"
 
-# Run all scenarios
-run_scenario(1, set1)
-run_scenario(2, set2)
-run_scenario(3, set3)
-run_scenario(4, set4)
+        total_reimbursement = 0
+        for current_date, day_type in day_types.items():
+            city_type = city_types[current_date]
+            total_reimbursement += self.rates[day_type][city_type]
+
+        return total_reimbursement
+
+def parse_date(date_str: str) -> date:
+    month, day, year = map(int, date_str.split('/'))
+    return date(2000 + year, month, day)
+
+def create_project(city_type: str, start_date: str, end_date: str) -> Project:
+    return Project(
+        CityType.HIGH_COST if "High" in city_type else CityType.LOW_COST,
+        parse_date(start_date),
+        parse_date(end_date)
+    )
+
+def main():
+    calculator = ReimbursementCalculator()
+
+    scenarios = [
+        [
+            create_project("Low Cost City", "9/1/15", "9/3/15")
+        ],
+        [
+            create_project("Low Cost City", "9/1/15", "9/1/15"),
+            create_project("High Cost City", "9/2/15", "9/6/15"),
+            create_project("Low Cost City", "9/6/15", "9/8/15")
+        ],
+        [
+            create_project("Low Cost City", "9/1/15", "9/3/15"),
+            create_project("High Cost City", "9/5/15", "9/7/15"),
+            create_project("High Cost City", "9/8/15", "9/8/15")
+        ],
+        [
+            create_project("Low Cost City", "9/1/15", "9/1/15"),
+            create_project("Low Cost City", "9/1/15", "9/1/15"),
+            create_project("High Cost City", "9/2/15", "9/2/15"),
+            create_project("High Cost City", "9/2/15", "9/3/15")
+        ]
+    ]
+
+    for i, scenario in enumerate(scenarios, 1):
+        reimbursement = calculator.calculate_reimbursement(scenario)
+        print(f"Set {i} Reimbursement: ${reimbursement}")
+
+if __name__ == "__main__":
+    main()
