@@ -40,6 +40,18 @@ def calculate_reimbursement(projects):
     
     return total_reimbursement
 
+def run_scenario(scenario, projects):
+    print(f"Set {scenario}:")
+    # Print details of each project in the scenario
+    for i, project in enumerate(projects, 1):
+        print(f"  Project {i}: {project.city_type.capitalize()} Cost City, "
+              f"Start Date: {project.start_date.strftime('%m/%d/%y')}, "
+              f"End Date: {project.end_date.strftime('%m/%d/%y')}")
+    
+    # Calculate and print the total reimbursement for the scenario
+    reimbursement = calculate_reimbursement(projects)
+    print(f"Total Reimbursement: ${reimbursement}\n")
+
 
 
 # Define the scenarios
@@ -58,7 +70,8 @@ set4 = [Project("low", "9/1/15", "9/1/15"),
         Project("high", "9/2/15", "9/2/15"),
         Project("high", "9/2/15", "9/3/15")]
 
-print(calculate_reimbursement(set1))
-print(calculate_reimbursement(set2))
-print(calculate_reimbursement(set3))
-print(calculate_reimbursement(set4))
+# Run all scenarios
+run_scenario(1, set1)
+run_scenario(2, set2)
+run_scenario(3, set3)
+run_scenario(4, set4)
