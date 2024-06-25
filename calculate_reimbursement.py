@@ -70,6 +70,9 @@ def create_project(city_type: str, start_date: str, end_date: str) -> Project:
         parse_date(end_date)
     )
 
+def format_date(d: date) -> str:
+    return d.strftime("%m/%d/%y")
+
 def main():
     calculator = ReimbursementCalculator()
 
@@ -96,8 +99,13 @@ def main():
     ]
 
     for i, scenario in enumerate(scenarios, 1):
+        print(f"\nSet {i}:")
+        for j, project in enumerate(scenario, 1):
+            print(f"  Project {j}: {project.city_type.value}, "
+                  f"Start Date: {format_date(project.start_date)}, "
+                  f"End Date: {format_date(project.end_date)}")
         reimbursement = calculator.calculate_reimbursement(scenario)
-        print(f"Set {i} Reimbursement: ${reimbursement}")
+        print(f"  Reimbursement: ${reimbursement}")
 
 if __name__ == "__main__":
     main()
